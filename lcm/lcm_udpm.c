@@ -1015,10 +1015,13 @@ _setup_recv_parts (lcm_udpm_t *lcm)
     struct ip_mreq mreq;
     mreq.imr_multiaddr = lcm->params.mc_addr;
     mreq.imr_interface.s_addr = INADDR_ANY;
+
+	const int mcAll = 0;
     // join the multicast group
     dbg (DBG_LCM, "LCM: joining multicast group\n");
-    if (setsockopt (lcm->recvfd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-            (char*)&mreq, sizeof (mreq)) < 0) {
+    if ((setsockopt (lcm->recvfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof (mreq)) < 0)  ||
+		(setsockopt(lcm->recvfd, IPPROTO_IP, IP_MULTICAST_ALL, (void*)&mcAll, sizeof(mcAll)) < 0))
+	{
         perror ("setsockopt (IPPROTO_IP, IP_ADD_MEMBERSHIP)");
         goto setup_recv_thread_fail;
     }
