@@ -245,42 +245,78 @@ static void emit_header_start(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
     emit(0, "class %s", sn);
     emit(0, "{");
 
-    // data members
-    if(g_ptr_array_size(ls->members)) {
-        emit(1, "public:");
-        for (unsigned int mind = 0; mind < g_ptr_array_size(ls->members); mind++) {
-            lcm_member_t *lm = (lcm_member_t *) g_ptr_array_index(ls->members, mind);
 
-            emit_comment(f, 2, lm->comment);
-            char* mapped_typename = map_type_name(lm->type->lctypename);
-            int ndim = g_ptr_array_size(lm->dimensions);
-            if (ndim == 0) {
-                emit(2, "%-10s %s;", mapped_typename, lm->membername);
-            } else {
-                if (lcm_is_constant_size_array(lm)) {
-                    emit_start(2, "%-10s %s", mapped_typename, lm->membername);
-                    for (unsigned int d = 0; d < ndim; d++) {
-                        lcm_dimension_t *ld = (lcm_dimension_t *) g_ptr_array_index(lm->dimensions, d);
-                        emit_continue("[%s]", ld->size);
-                    }
-                    emit_end(";");
-                } else {
-                    emit_start(2, "");
-                    for (unsigned int d = 0; d < ndim; d++)
-                        emit_continue("std::vector< ");
-                    emit_continue("%s", mapped_typename);
-                    for (unsigned int d = 0; d < ndim; d++)
-                        emit_continue(" >");
-                    emit_end(" %s;", lm->membername);
-                }
-            }
-            free(mapped_typename);
-            if (mind < g_ptr_array_size(ls->members) - 1) {
-                emit(0, "");
-            }
-        }
-        emit(0, "");
-    }
+    const int numMembers = g_ptr_array_size(ls->members);
+	 if(numMembers > 0)
+	 {
+		 // constructor
+		emit(1, "public:");
+		emit(0, "");
+		emit(2, "%s()", sn);
+		emit(2, "{");
+
+		for (unsigned int mind = 0; mind < numMembers; mind++)
+		{
+			lcm_member_t *lm = (lcm_member_t *) g_ptr_array_index(ls->members, mind);
+			const int ndim = g_ptr_array_size(lm->dimensions);
+			if(ndim == 0)
+			{
+				if(lcm_is_primitive_type(lm->type->lctypename) &&
+						strcmp(lm->type->lctypename, "string"))
+				{
+					if (!strcmp(lm->type->lctypename, "float") ||
+							!strcmp(lm->type->lctypename, "double"))
+					{
+						emit(3, "%s = 0.0;", lm->membername);
+					}
+					else if(!strcmp(lm->type->lctypename, "boolean"))
+					{
+						emit(3, "%s = false;", lm->membername);
+					}
+					else
+					{
+						emit(3, "%s = 0;", lm->membername);
+					}
+				}
+			}
+		}
+
+		emit(2, "}");
+		emit(0, "");
+
+		/// data members
+		emit(1, "public:");
+		emit(0, "");
+		for (unsigned int mind = 0; mind < numMembers; mind++)
+		{
+			lcm_member_t *lm = (lcm_member_t *) g_ptr_array_index(ls->members, mind);
+			emit_comment(f, 2, lm->comment);
+			char* mapped_typename = map_type_name(lm->type->lctypename);
+			int ndim = g_ptr_array_size(lm->dimensions);
+			if (ndim == 0) {
+				 emit(2, "%-10s %s;", mapped_typename, lm->membername);
+			} else {
+				 if (lcm_is_constant_size_array(lm)) {
+					  emit_start(2, "%-10s %s", mapped_typename, lm->membername);
+					  for (unsigned int d = 0; d < ndim; d++) {
+							lcm_dimension_t *ld = (lcm_dimension_t *) g_ptr_array_index(lm->dimensions, d);
+							emit_continue("[%s]", ld->size);
+					  }
+					  emit_end(";");
+				 } else {
+					  emit_start(2, "");
+					  for (unsigned int d = 0; d < ndim; d++)
+							emit_continue("std::vector< ");
+					  emit_continue("%s", mapped_typename);
+					  for (unsigned int d = 0; d < ndim; d++)
+							emit_continue(" >");
+					  emit_end(" %s;", lm->membername);
+				 }
+			}
+			free(mapped_typename);
+		}
+		emit(0, "");
+	  }
 
     // constants
     if (g_ptr_array_size(ls->constants) > 0) {
