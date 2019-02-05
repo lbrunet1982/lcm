@@ -306,6 +306,12 @@ class LCM {
                                 ContextClass context),
                 ContextClass context);
 
+        template <class MessageType>
+        Subscription* subscribeFunction(const std::string& channel,
+                void (*handler)(const ReceiveBuffer* rbuf,
+                                const std::string& channel,
+                                const MessageType *msg));
+
         /**
          * @brief Subscribe a function callback to a channel, without automatic
          * message decoding.

@@ -40,6 +40,32 @@ class LCMTypedSubscription : public Subscription {
         }
 };
 
+template <class MessageType>
+class LCMTypedNoContextSubscription : public Subscription {
+    friend class LCM;
+    private:
+        void (*handler)(const ReceiveBuffer *rbuf, const std::string& channel, const MessageType*msg);
+        static void cb_func(const lcm_recv_buf_t *rbuf, const char *channel, void *user_data)
+        {
+            typedef LCMTypedNoContextSubscription<MessageType> SubsClass;
+            SubsClass *subs = static_cast<SubsClass *> (user_data);
+            MessageType msg;
+            int status = msg.decode(rbuf->data, 0, rbuf->data_size);
+            if (status < 0) {
+                fprintf (stderr, "error %d decoding %s!!!\n", status,
+                        MessageType::getTypeName());
+                return;
+            }
+            const ReceiveBuffer rb =
+            {
+                rbuf->data,
+                rbuf->data_size,
+                rbuf->recv_utime
+            };
+            subs->handler(&rb, channel, &msg);
+        }
+};
+
 template <class ContextClass>
 class LCMUntypedSubscription : public Subscription {
     friend class LCM;
@@ -268,6 +294,24 @@ LCM::subscribeFunction(const std::string& channel,
     sub->c_subs = lcm_subscribe(lcm, channel.c_str(), SubsClass::cb_func, sub);
     sub->handler = handler;
     sub->context = context;
+    subscriptions.push_back(sub);
+    return sub;
+}
+
+template <class MessageType>
+Subscription*
+LCM::subscribeFunction(const std::string& channel,
+        void (*handler)(const ReceiveBuffer *rbuf,
+            const std::string& channel,
+            const MessageType *msgt)) {
+    if(!this->lcm) {
+        fprintf(stderr, "LCM instance not initialized.  Ignoring call to subscribeFunction()\n");
+        return NULL;
+    }
+    typedef LCMTypedNoContextSubscription<MessageType> SubsClass;
+    SubsClass *sub = new SubsClass();
+    sub->c_subs = lcm_subscribe(lcm, channel.c_str(), SubsClass::cb_func, sub);
+    sub->handler = handler;
     subscriptions.push_back(sub);
     return sub;
 }
